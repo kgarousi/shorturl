@@ -1,6 +1,8 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+import 'dotenv/config'; // Use dynamic import for dotenv
+import express from 'express';
+import cors from 'cors';
+import { nanoid } from 'nanoid';
+import { URL } from 'url';
 const app = express();
 
 // Basic Configuration
@@ -22,3 +24,54 @@ app.get('/api/hello', function(req, res) {
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
 });
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }))
+
+const urlDatabase = {};
+
+app.post('/api/shorturl', (req, res) => {
+  const originalUrl = req.body.url;
+
+
+  // Validate URL format
+  try {
+    new URL(originalUrl); // Throws an error if invalid
+
+    const urlObject = new URL(originalUrl);
+
+    // Check if the URL has a valid protocol
+    if (!['http:', 'https:'].includes(urlObject.protocol)) {
+      res.json({ error: 'invalid url' })
+    }
+
+  } catch (e) {
+    return res.json({ error: 'invalid url' });
+  }
+  
+
+  // Generate a unique short URL ID
+  const shortUrlId = nanoid(6); // Generates a 6-character ID
+
+  // Store the URL mapping
+  urlDatabase[shortUrlId] = originalUrl;
+
+  // Send the response
+  res.json({
+    original_url: originalUrl,
+    short_url: shortUrlId
+  });
+});
+
+// Endpoint to resolve short URLs
+app.get('/api/shorturl/:id', (req, res) => {
+  const shortUrlId = req.params.id;
+  const originalUrl = urlDatabase[shortUrlId];
+
+  if (originalUrl) {
+    res.redirect(originalUrl);
+  } else {
+    res.json({ error: 'No short URL found for the given input' });
+  }
+});
+
